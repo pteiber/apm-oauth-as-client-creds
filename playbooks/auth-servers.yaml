@@ -1,0 +1,29 @@
+- name: process auth servers
+  gather_facts: false
+  hosts: all
+  connection: local
+  any_errors_fatal: true
+  vars:
+    provider:
+      server: "{{ ansible_host }}"
+      user: "{{ service_account_user }}"
+      password: "{{ service_account_password }}"
+      validate_certs: false
+      server_port: 443
+
+  # heavily inspired by https://github.com/megamattzilla/ansible/blob/main/f5-pingacess/pingaccess.yaml
+  # tasks loop over auth_servers, calling/creating registered values from other tasks
+  # the goal is to implement idempotency
+
+  tasks:
+    - name: create AS, inner virtual, and mapping data group
+      ansible.builtin.include_tasks: tasks/auth-server.yaml
+      loop: "{{ auth_servers }}"
+      loop_control:
+        index_var: auth_server
+        extended: true
+        label: "{{ item.name }}"
+
+    - name: create outer virtual and mapping data group
+      ansible.builtin.include_tasks: tasks/outer-virtual.yaml
+      tags: mapping-dg

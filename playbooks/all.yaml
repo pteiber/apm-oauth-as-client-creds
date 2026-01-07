@@ -1,0 +1,15 @@
+---
+- name: create scopes
+  ansible.builtin.import_playbook: scopes.yaml
+
+- name: create claims
+  ansible.builtin.import_playbook: claims.yaml
+
+- name: convert Okta client apps
+  ansible.builtin.import_playbook: okta-client-apps.yaml
+
+- name: create auth servers
+  ansible.builtin.import_playbook: auth-servers.yaml
+
+- name: save config
+  ansible.builtin.import_playbook: config-save.yaml

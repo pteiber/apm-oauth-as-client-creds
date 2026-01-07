@@ -1,0 +1,86 @@
+- name: process scopes
+  gather_facts: false
+  hosts: all
+  connection: local
+  any_errors_fatal: true
+
+  # heavily inspired by https://github.com/megamattzilla/ansible/blob/main/f5-pingacess/pingaccess.yaml
+  # tasks loop over scopes, calling/creating registered values from other tasks
+  # the goal is to implement idempotency
+
+  tasks:
+    - name: create formatted scopes list
+      ansible.builtin.set_fact:
+        formatted_scopes: []
+      delegate_to: localhost
+
+    - name: format claims for API
+      ansible.builtin.set_fact:
+        formatted_scopes: "{{ formatted_scopes + [item | combine({'scopeName': item.name})] }}"
+      loop: "{{ scopes }}"
+      delegate_to: localhost
+
+    - name: show formatted claims
+      ansible.builtin.debug:
+        var: formatted_scopes
+      delegate_to: localhost
+
+    - name: check if scopes exist
+      uri:
+        url: "https://{{ansible_host}}/mgmt/tm/apm/oauth/oauth-scope/~Common~{{item.name}}"
+        user: "{{ service_account_user }}"
+        password: "{{ service_account_password }}"
+        validate_certs: false
+        force_basic_auth: true
+        method: GET
+        status_code: 200,404
+      register: scope_exists
+      loop: "{{ formatted_scopes }}"
+      loop_control:
+        index_var: index
+        label: "{{ item.name }}"
+
+    # - name: check if existing scope values match desired values
+    #   ansible.builtin.meta:
+    #     name: 
+    #     free_form: noop
+
+    - name: create scopes
+      uri:
+        url: "https://{{ansible_host}}/mgmt/tm/apm/oauth/oauth-scope"
+        user: "{{ service_account_user }}"
+        password: "{{ service_account_password }}"
+        validate_certs: false
+        force_basic_auth: true
+        method: POST
+        body_format: json
+        body: "{{ item | to_json }}"
+        status_code: 200
+      register: scope_created
+      loop: "{{ formatted_scopes }}"
+      loop_control:
+        index_var: index
+        label: "{{ item.name }}"
+      when:
+        - scope_exists.results[index].status == 404
+      changed_when: scope_created.status == 200
+
+    - name: update modified scopes
+      uri:
+        url: "https://{{ansible_host}}/mgmt/tm/apm/oauth/oauth-scope/~Common~{{item.name}}"
+        user: "{{ service_account_user }}"
+        password: "{{ service_account_password }}"
+        validate_certs: false
+        force_basic_auth: true
+        method: PATCH
+        body_format: json
+        body: "{{ item | to_json }}"
+        status_code: 200
+      register: scope_modified
+      loop: "{{ formatted_scopes }}"
+      loop_control:
+        index_var: index
+        label: "{{ item.name }}"
+      when:
+        - scope_exists.results[index].status == 200 # todo: add diff results
+      changed_when: scope_modified.status == 200

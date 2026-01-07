@@ -1,0 +1,13 @@
+{% for client in okta_clients %}
+apm oauth oauth-client-app /Common/okta-{{ client.client_id }} {
+{% if client.description is defined %}
+app-description "{{ client.description }}"
+{% endif %}
+app-name "{{ client.app_name }}"
+client-id {{ client.client_id | hash('sha256') | truncate(48, True, '', 0) }}
+client-secret {{ client.client_secret | hash('sha256') }}
+contact "Okta Client ID: {{ client.client_id }}"
+grant-password enabled
+}
+
+{% endfor %}

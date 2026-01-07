@@ -1,0 +1,6 @@
+{% for client in okta_clients %}
+{% if client.attributes is defined and client.attributes | length > 0 %}
+{{ client.client_id | hash('sha256') | truncate(48, True, '', 0) }} := {{ client.attributes | map(attribute='name') | zip(client.attributes | map(attribute='value')) 
+   | map('join', '=') | join('|') }}
+{% endif %}
+{% endfor %}

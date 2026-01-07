@@ -1,0 +1,57 @@
+---
+- name: tune icrd.timeout
+  ansible.builtin.bigip_sys_db:
+    key: icrd.timeout
+    value: "600"
+    provider: "{{ provider }}"
+  tags: never, tune-restjavad
+
+- name: tune restjavad.timeout
+  f5networks.f5_modules.bigip_sys_db:
+    key: restjavad.timeout
+    value: "600"
+    provider: "{{ provider }}"
+  tags: never, tune-restjavad
+
+- name: tune restnoded.timeout
+  f5networks.f5_modules.bigip_sys_db:
+    key: restnoded.timeout
+    value: "600"
+    provider: "{{ provider }}"
+  tags: never, tune-restjavad
+
+- name: tune provision.extramb
+  f5networks.f5_modules.bigip_sys_db:
+    key: provision.extramb
+    value: "2048"
+    provider: "{{ provider }}"
+  tags: never, tune-restjavad
+
+- name: tune provision.tomcat.extramb
+  f5networks.f5_modules.bigip_sys_db:
+    key: provision.tomcat.extramb
+    value: "20"
+    provider: "{{ provider }}"
+  tags: never, tune-restjavad
+
+- name: tune provision.restjavad.extramb
+  f5networks.f5_modules.bigip_sys_db:
+    key: provision.restjavad.extramb
+    value: "600"
+    provider: "{{ provider }}"
+  tags: never, tune-restjavad
+
+- name: save config
+  f5networks.f5_modules.bigip_config:
+    save: true
+    provider: "{{ provider }}"
+  tags: never, tune-restjavad
+
+- name: restart restjavad and restnoded services
+  command: /bin/bigstart restart restjavad restnoded
+  # override since playbook is connection: local
+  delegate_to: "{{ inventory_hostname }}"
+  connection: ssh
+  vars:
+    ansible_python_interpreter: /usr/bin/python3.8
+  tags: never, tune-restjavad

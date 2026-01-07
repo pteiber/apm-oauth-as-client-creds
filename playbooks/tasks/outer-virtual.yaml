@@ -1,0 +1,66 @@
+---
+- name: create tempfile for data group
+  ansible.builtin.tempfile:
+    state: file
+    suffix: tmp
+  register: as_mapping_file
+  delegate_to: localhost
+  tags: mapping-dg
+
+- name: create AS mapping data group file
+  ansible.builtin.template:
+    src: ../templates/oauth-as-mapping.txt.j2
+    dest: "{{ as_mapping_file.path }}"
+  delegate_to: localhost
+  tags: mapping-dg
+
+- name: create AS mapping data group
+  f5networks.f5_modules.bigip_data_group:
+    name: "{{ as_selector_data_group }}"
+    records_src: "{{ as_mapping_file.path }}"
+    type: string
+    provider: "{{ provider }}"
+  tags: mapping-dg
+
+- name: create outer virtual clientssl
+  f5networks.f5_modules.bigip_profile_client_ssl:
+    state: present
+    partition: Common
+    name: "{{ outer_virtual_name }}-clientssl"
+    cert_key_chain:
+      - cert: "{{ outer_virtual_cert }}"
+        key: "{{ outer_virtual_key }}"
+    provider: "{{ provider }}"
+
+- name: create oauth-as-selector iRule
+  f5networks.f5_modules.bigip_irule:
+    name: oauth-as-selector
+    partition: Common
+    module: ltm
+    content: |
+      when HTTP_REQUEST {
+        set app_virtual [class match -value [HTTP::uri] contains oauth-as-mapping]
+
+        if { $app_virtual != "" } {
+          log local0. "Sending OAuth AS request to $app_virtual"
+          virtual $app_virtual
+        } else {
+          HTTP::respond 401
+        }
+      }
+    provider: "{{ provider }}"
+
+- name: create outer virtual
+  f5networks.f5_modules.bigip_virtual_server:
+    state: present
+    partition: Common
+    name: "{{ outer_virtual_name }}"
+    destination: "{{ outer_virtual_ip }}"
+    port: "{{ outer_virtual_port }}"
+    profiles:
+      - http
+      - f5-tcp-progressive
+      - "{{ outer_virtual_name }}-clientssl"
+    irules:
+      - oauth-as-selector
+    provider: "{{ provider }}"

@@ -1,0 +1,42 @@
+- name: add okta users
+  gather_facts: false
+  hosts: all
+  connection: local
+  any_errors_fatal: true
+  vars:
+    provider:
+      server: "{{ ansible_host }}"
+      user: "{{ service_account_user }}"
+      password: "{{ service_account_password }}"
+      validate_certs: false
+      server_port: 443
+
+  tasks:
+    - name: generate, merge and save F5 configuration
+      f5networks.f5_modules.bigip_config:
+        merge_content: "{{ lookup('template', './templates/okta-client-app.conf.j2') }}"
+        save: true
+        provider: "{{ provider }}"
+
+    - name: create tempfile for client app attributes data group
+      ansible.builtin.tempfile:
+        state: file
+        suffix: tmp
+      register: client_app_attributes
+      delegate_to: localhost
+      tags: client-app-attributes
+
+    - name: create client app attribute data group file
+      ansible.builtin.template:
+        src: ../templates/client-app-data.txt.j2
+        dest: "{{ client_app_attributes.path }}"
+      delegate_to: localhost
+      tags: client-app-attributes
+
+    - name: create client app attribute data group
+      f5networks.f5_modules.bigip_data_group:
+        name: "{{ client_app_attribute_data_group }}"
+        records_src: "{{ client_app_attributes.path }}"
+        type: string
+        provider: "{{ provider }}"
+      tags: client-app-attributes

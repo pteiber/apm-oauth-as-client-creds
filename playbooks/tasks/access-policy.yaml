@@ -1,0 +1,31 @@
+---
+- name: get claim default values
+  ansible.builtin.set_fact:
+    claim_defaults: "{{ claims | items2dict(key_name='name', value_name='claimValue') }}"
+  delegate_to: localhost
+
+- name: render APM PSP
+  ansible.builtin.set_fact:
+    apm_policy: "{{ lookup('template', '../templates/apm-policy.conf.j2') }}"
+  delegate_to: localhost
+
+- name: configure APM PSP
+  f5networks.f5_modules.bigip_config:
+    merge_content: "{{ apm_policy }}"
+    save: true
+    provider: "{{ provider }}"
+
+- name: apply access policy
+  ansible.builtin.uri:
+    url: "https://{{ ansible_host }}/mgmt/tm/apm/profile/access/~Common~oauth-as-{{ item.name }}-access"
+    method: PATCH
+    user: "{{ service_account_user }}"
+    password: "{{ service_account_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      generationAction: increment
+    status_code: 200
+  register: access_policy_applied
+  changed_when: access_policy_applied.status == 200

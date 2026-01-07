@@ -1,0 +1,3 @@
+{% for auth_server in auth_servers %}
+/{{ auth_server.uri }}/ := {{ inner_virtual_name_prefix }}{{ auth_server.name }}
+{% endfor %}

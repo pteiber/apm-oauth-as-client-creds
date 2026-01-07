@@ -1,0 +1,30 @@
+defaults:
+  auth_servers:
+    jwtAccessTokenLifetime: 5
+    subject: "%{session.oauth.authz.client_id}"
+    issuer: "https://oauth-as.issuer.name"
+    algType: RS256
+    cert: /Common/default.crt
+    certKey: /Common/default.key
+    logSettings:
+      - /Common/default-log-setting
+      - /Common/syslog-logging
+    claims:
+      - scp
+    scopes:
+      - profile
+    client_apps:
+      - okta-Ingaf7v8Zj0Bv3Q43Ils
+
+client_app_attribute_data_group: oauth-client-app-data
+
+outer_virtual_name: "oauth-as-outer"
+outer_virtual_ip: "10.12.1.15"
+outer_virtual_port: 443
+outer_virtual_cert: /Common/default.crt
+outer_virtual_key: /Common/default.key
+as_selector_data_group: oauth-as-mapping
+
+inner_virtual_name_prefix: "oauth-as-"
+inner_virtual_ip: "1.1.1.2"
+inner_virtual_starting_port: 1000

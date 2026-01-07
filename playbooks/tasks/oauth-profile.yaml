@@ -1,0 +1,109 @@
+---
+- name: check if jwk config exists
+  uri:
+    url: "https://{{ansible_host}}/mgmt/tm/apm/oauth/jwk-config/~Common~{{item.name}}-jwk"
+    user: "{{ service_account_user }}"
+    password: "{{ service_account_password }}"
+    validate_certs: false
+    force_basic_auth: true
+    method: GET
+    status_code: 200,404
+  register: jwk_exists
+
+- name: create jwk config
+  ansible.builtin.uri:
+    url: "https://{{ansible_host}}/mgmt/tm/apm/oauth/jwk-config"
+    user: "{{ service_account_user }}"
+    password: "{{ service_account_password }}"
+    validate_certs: false
+    force_basic_auth: true
+    method: POST
+    body_format: json
+    body:
+      name: "{{item.name}}-jwk"
+      algType: "{{ item.algType | default(defaults.auth_servers.algType) }}"
+      cert: "{{ item.cert | default(defaults.auth_servers.cert) }}"
+      certKey: "{{ item.certKey | default(defaults.auth_servers.certKey) }}"
+      keyId: "{{item.name}}-jwk"
+  when:
+    - jwk_exists.status == 404
+
+- name: check if oauth profile exists
+  uri:
+    url: "https://{{ansible_host}}/mgmt/tm/apm/profile/oauth/~Common~{{item.name}}"
+    user: "{{ service_account_user }}"
+    password: "{{ service_account_password }}"
+    validate_certs: false
+    force_basic_auth: true
+    method: GET
+    status_code: 200,404
+  register: as_exists
+
+- name: create oauth profile
+  ansible.builtin.uri:
+    url: "https://{{ansible_host}}/mgmt/tm/apm/profile/oauth"
+    user: "{{ service_account_user }}"
+    password: "{{ service_account_password }}"
+    validate_certs: false
+    force_basic_auth: true
+    method: POST
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      jwtAccessTokenLifetime: "{{ item.jwtAccessTokenLifetime | default(defaults.auth_servers.jwtAccessTokenLifetime, true) }}"
+      opaqueToken: disabled
+      jwtToken: enabled
+      jwtType: jws
+      generateJwtRefreshToken: "false" # yes, it's a string
+      subject: "{{ item.subject | default(defaults.auth_servers.subject)}}"
+      audience: "{{ item.audience | default(defaults.auth_servers.audience) }}"
+      issuer: "{{ item.issuer | default(defaults.auth_servers.issuer) }}"
+      primaryKey: "/Common/{{item.name}}-jwk"
+      jwtRefreshTokenEncSecret: notused
+      tokenIssuanceUrl: "/oauth2/{{ item.uri }}/v1/token"
+      authUrl: "/oauth2/{{ item.uri }}/v1/authorize"
+      jwksUrl: "/oauth2/{{ item.uri }}/v1/keys"
+      openidCfgUrl: "/oauth2/{{ item.uri }}/.well-known/openid-configuration"
+    status_code: 200
+  ignore_errors: true
+  register: as_created
+  when:
+    - as_exists.status == 404
+  changed_when: as_created.status == 200
+
+- name: check if client apps exist
+  ansible.builtin.uri:
+    url: "https://{{ansible_host}}/mgmt/tm/apm/profile/oauth/~Common~{{item.name}}/client-apps/~Common~{{client_app}}"
+    user: "{{ service_account_user }}"
+    password: "{{ service_account_password }}"
+    validate_certs: false
+    force_basic_auth: true
+    method: GET
+    status_code: 200,404
+  register: client_app_exists
+  loop: "{{ item.client_apps }}"
+  loop_control:
+    loop_var: client_app
+    index_var: client_app_index
+    label: "{{ client_app }}"
+
+- name: assign client apps to auth server
+  ansible.builtin.uri:
+    url: "https://{{ansible_host}}/mgmt/tm/apm/profile/oauth/~Common~{{item.name}}/client-apps"
+    user: "{{ service_account_user }}"
+    password: "{{ service_account_password }}"
+    validate_certs: false
+    force_basic_auth: true
+    method: POST
+    body_format: json
+    body:
+      name: "{{ client_app }}"
+    status_code: 200
+  register: client_app_created
+  loop: "{{ item.client_apps }}"
+  loop_control:
+    index_var: client_app_index
+    loop_var: client_app
+  when:
+    - client_app_exists.results[client_app_index].status == 404
+  changed_when: client_app_created.status == 200

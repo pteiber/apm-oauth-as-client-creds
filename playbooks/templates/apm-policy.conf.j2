@@ -1,0 +1,201 @@
+{% set as = item %}
+apm profile access /Common/oauth-as-{{ as.name }}-access {
+  defaults-from access
+  access-policy /Common/oauth-as-{{ as.name }}-access
+  oauth-profile /Common/{{ as.name }}
+  log-settings {
+{% for log in as.logSettings | default(defaults.auth_servers.logSettings) %}
+    {{ log }}
+{% endfor %}
+  }
+}
+
+apm policy access-policy /Common/oauth-as-{{ as.name }}-access {
+  default-ending /Common/oauth-as-{{ as.name }}-access_end_deny
+  items {
+    /Common/oauth-as-{{ as.name }}-access_act_irule_event { }
+    /Common/oauth-as-{{ as.name }}-access_act_oauth_authz { }
+    /Common/oauth-as-{{ as.name }}-access_act_oauth_authz_1 { }
+    /Common/oauth-as-{{ as.name }}-access_act_variable_assign_1 { }
+    /Common/oauth-as-{{ as.name }}-access_end_allow { }
+    /Common/oauth-as-{{ as.name }}-access_end_deny { }
+    /Common/oauth-as-{{ as.name }}-access_ent { }
+  }
+  start-item /Common/oauth-as-{{ as.name }}-access_ent
+}
+
+apm policy policy-item /Common/oauth-as-{{ as.name }}-access_act_irule_event {
+  agents {
+    /Common/oauth-as-{{ as.name }}-access_act_irule_event_ag {
+      type irule-event
+    }
+  }
+  caption "Process Client App Data"
+  color 1
+  item-type action
+  rules {
+    {
+      caption fallback
+      next-item /Common/oauth-as-{{ as.name }}-access_act_oauth_authz
+    }
+  }
+}
+
+apm policy policy-item /Common/oauth-as-{{ as.name }}-access_act_oauth_authz {
+  agents {
+    /Common/oauth-as-{{ as.name }}-access_act_oauth_authz_ag {
+      type oauth-authz
+    }
+  }
+  caption "Compute Scopes"
+  color 1
+  item-type action
+  rules {
+    {
+      caption Successful
+      expression "expr {[mcget {session.oauth.authz.last.result}] == 1 && [mcget {session.assigned.oauth.authz.scopes_count}] > 0}"
+      next-item /Common/oauth-as-{{ as.name }}-access_act_variable_assign_1
+    }
+    {
+      caption fallback
+      next-item /Common/oauth-as-{{ as.name }}-access_end_deny
+    }
+  }
+}
+
+apm policy policy-item /Common/oauth-as-{{ as.name }}-access_act_oauth_authz_1 {
+  agents {
+    /Common/oauth-as-{{ as.name }}-access_act_oauth_authz_1_ag {
+      type oauth-authz
+    }
+  }
+  caption "OAuth Authorization"
+  color 1
+  item-type action
+  rules {
+    {
+      caption Successful
+      expression "expr {[mcget {session.oauth.authz.last.result}] == 1 && [mcget {session.assigned.oauth.authz.scopes_count}] > 0}"
+      next-item /Common/oauth-as-{{ as.name }}-access_end_allow
+    }
+    {
+      caption fallback
+      next-item /Common/oauth-as-{{ as.name }}-access_end_deny
+    }
+  }
+}
+
+apm policy policy-item /Common/oauth-as-{{ as.name }}-access_act_variable_assign_1 {
+  agents {
+    /Common/oauth-as-{{ as.name }}-access_act_variable_assign_1_ag {
+      type variable-assign
+    }
+  }
+  caption "Assign Scopes"
+  color 1
+  item-type action
+  rules {
+    {
+      caption fallback
+      next-item /Common/oauth-as-{{ as.name }}-access_act_oauth_authz_1
+    }
+  }
+}
+
+apm policy policy-item /Common/oauth-as-{{ as.name }}-access_end_allow {
+  agents {
+    /Common/oauth-as-{{ as.name }}-access_end_allow_ag {
+      type ending-allow
+    }
+  }
+  caption Allow
+  color 1
+  item-type ending
+}
+
+apm policy policy-item /Common/oauth-as-{{ as.name }}-access_end_deny {
+  agents {
+    /Common/oauth-as-{{ as.name }}-access_end_deny_ag {
+      type ending-deny
+    }
+  }
+  caption Deny
+  color 2
+  item-type ending
+}
+
+apm policy policy-item /Common/oauth-as-{{ as.name }}-access_ent {
+  caption Start
+  color 1
+  rules {
+    {
+      caption fallback
+      next-item /Common/oauth-as-{{ as.name }}-access_act_irule_event
+    }
+  }
+}
+
+apm policy agent ending-allow /Common/oauth-as-{{ as.name }}-access_end_allow_ag { }
+
+apm policy agent ending-deny /Common/oauth-as-{{ as.name }}-access_end_deny_ag { }
+
+apm policy agent irule-event /Common/oauth-as-{{ as.name }}-access_act_irule_event_ag {
+  id process_client_app_data
+}
+
+apm policy agent oauth-authz /Common/oauth-as-{{ as.name }}-access_act_oauth_authz_1_ag {
+  entries {
+    0 {
+      jwt-access-token-claim-entries {
+{% for claim in as.claims %}
+        {{ loop.index0 }} {
+{% if claim is string %}
+          claim-name /Common/{{ claim }}
+          claim-value "{{ claim_defaults[claim] | default('N/A') }}"
+{% else %}
+          claim-name /Common/{{ claim.name }}
+          claim-value "{{ claim.value }}"
+{% endif %}
+        }
+{% endfor %}
+      }
+    }
+{% for scope in as.scopes %}
+    {{ loop.index }} {
+      expression "expr { [lsearch [split [mcget {session.oauth.authz.requested_scopes}] \" \"] \"{{ scope }}\"] != -1 }"
+      scope-entries {
+        0 {
+          scope-name /Common/{{ scope }}
+        }
+      }
+    }
+{% endfor %}
+  }
+  prompt-for-authorization false
+  subject "{{ as.subject | default(defaults.auth_servers.subject) }}"
+}
+
+apm policy agent oauth-authz /Common/oauth-as-{{ as.name }}-access_act_oauth_authz_ag {
+  entries {
+{% for scope in as.scopes %}
+    {{ loop.index0 }} {
+      expression "expr { [lsearch [split [mcget {session.oauth.authz.requested_scopes}] \" \"] \"{{ scope }}\"] != -1 }"
+      scope-entries {
+        0 {
+          scope-name /Common/{{ scope }}
+        }
+      }
+    }
+{% endfor %}
+  }
+  prompt-for-authorization false
+}
+
+apm policy agent variable-assign /Common/oauth-as-{{ as.name }}-access_act_variable_assign_1_ag {
+  variables {
+    {
+      expression "return \"\\[[join [list {*}[foreach v [split [mcget {session.assigned.oauth.authz.scopes}]] {lappend out [format \"\\\"%s\\\"\" $v]}];set out] ,]\\]\""
+      varname session.custom.scp
+    }
+  }
+}

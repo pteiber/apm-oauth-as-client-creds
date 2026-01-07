@@ -1,0 +1,14 @@
+---
+scopes:
+  - name: read # F5 object name and scope name; must be unique
+
+  - name: write
+
+  - name: profile
+
+  - name: api
+
+  - name: ui
+
+  - name: scope-with-value
+    scopeValue: value-of-scope

@@ -1,0 +1,9 @@
+---
+- name: create OAuth profile
+  ansible.builtin.include_tasks: oauth-profile.yaml
+
+- name: create access policy
+  ansible.builtin.include_tasks: access-policy.yaml
+
+- name: create inner virtual server
+  ansible.builtin.include_tasks: inner-virtual.yaml

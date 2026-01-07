@@ -1,0 +1,35 @@
+---
+- name: create oauth-client-creds iRule
+  f5networks.f5_modules.bigip_irule:
+    name: oauth-client-creds
+    state: present
+    partition: Common
+    module: ltm
+    content: "{{ lookup('file', 'oauth-client-creds.tcl') }}"
+    provider: "{{ provider }}"
+
+- name: create process-client-app-data iRule
+  f5networks.f5_modules.bigip_irule:
+    name: process-client-app-data
+    state: present
+    partition: Common
+    module: ltm
+    content: "{{ lookup('file', 'process-client-app-data.tcl') }} "
+    provider: "{{ provider }}"
+
+- name: create inner virtual server
+  f5networks.f5_modules.bigip_virtual_server:
+    state: present
+    partition: Common
+    name: "{{ inner_virtual_name_prefix }}{{ item.name }}"
+    destination: "{{ inner_virtual_ip }}"
+    port: "{{ inner_virtual_starting_port + ansible_loop.index0 }}"
+    enabled_vlans: []
+    profiles:
+      - http
+      - f5-tcp-progressive
+      - "oauth-as-{{ item.name }}-access"
+    irules:
+      - oauth-client-creds
+      - process-client-app-data
+    provider: "{{ provider }}"

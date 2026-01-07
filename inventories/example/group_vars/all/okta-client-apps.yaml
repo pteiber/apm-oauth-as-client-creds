@@ -1,0 +1,24 @@
+okta_clients:
+  - client_id: a07NPkDgusMuRsGIhcpU
+    client_secret: rh3TymNH8UJPjH7TqFwvHLyMwOY-IcK55r1MJQDw
+    app_name: Okta Client App 1
+    description: Optional Description
+    attributes:
+      - name: internalID
+        value: "1234567890"
+      - name: customValue
+        value: customString
+
+  - client_id: Ingaf7v8Zj0Bv3Q43Ils
+    client_secret: Uc8saEeXTRUSQGMvEvS4LCH0fL7-y3fjac8zuA8Z
+    app_name: Okta Client App 2
+    attributes:
+      - name: internalID
+        value: "2345678901"
+
+  - client_id: RD531VQoN9bvlsivwjNl
+    client_secret: Uc8saEeXTRUSQGMvEvS4LCH0fL7-Ar1BCwMmGubl
+    app_name: Okta Client App 3
+    attributes:
+      - name: internalID
+        value: "3456789012"

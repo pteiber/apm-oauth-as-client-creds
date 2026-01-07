@@ -1,0 +1,33 @@
+auth_servers:
+  - name: APP-76543210
+    uri: x6GLeVxFlFpkh29l5MTkv
+    audience:
+      - APP-76543210
+    cert: /Common/default.crt
+    certKey: /Common/default.key
+    client_apps:
+      - okta-a07NPkDgusMuRsGIhcpU
+    scopes:
+      - read
+      - write
+      - ui
+    claims:
+      - employeeNumber
+      - cid
+      - customClaim
+
+  - name: APP-01234567
+    uri: ImfM4ZlIZz72twfR90Vs
+    audience:
+      - APP-01234567
+    client_apps:
+      - okta-Ingaf7v8Zj0Bv3Q43Ils
+      - okta-RD531VQoN9bvlsivwjNl
+      - okta-a07NPkDgusMuRsGIhcpU
+    scopes:
+      - read
+      - write
+      - api
+    claims:
+      - employeeNumber
+      - cid

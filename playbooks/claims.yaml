@@ -1,0 +1,86 @@
+- name: process claims
+  gather_facts: false
+  hosts: all
+  connection: local
+  any_errors_fatal: true
+
+  # heavily inspired by https://github.com/megamattzilla/ansible/blob/main/f5-pingacess/pingaccess.yaml
+  # tasks loop over claims, calling/creating registered values from other tasks
+  # the goal is to implement idempotency
+
+  tasks:
+    - name: create formatted claims list
+      ansible.builtin.set_fact:
+        formatted_claims: []
+      delegate_to: localhost
+
+    - name: format claims for API
+      ansible.builtin.set_fact:
+        formatted_claims: "{{ formatted_claims + [item | combine({'claimName': item.name})] }}"
+      loop: "{{ claims }}"
+      delegate_to: localhost
+
+    - name: show formatted claims
+      ansible.builtin.debug:
+        var: formatted_claims
+      delegate_to: localhost
+
+    - name: check if claims exist
+      uri:
+        url: "https://{{ansible_host}}/mgmt/tm/apm/oauth/oauth-claim/~Common~{{item.name}}"
+        user: "{{ service_account_user }}"
+        password: "{{ service_account_password }}"
+        validate_certs: false
+        force_basic_auth: true
+        method: GET
+        status_code: 200,404
+      register: claim_exists
+      loop: "{{ formatted_claims }}"
+      loop_control:
+        index_var: index
+        label: "{{ item.name }}"
+
+    # - name: check if existing claim values match desired values
+    #   ansible.builtin.meta:
+    #     name: 
+    #     free_form: noop
+
+    - name: create claims
+      uri:
+        url: "https://{{ansible_host}}/mgmt/tm/apm/oauth/oauth-claim"
+        user: "{{ service_account_user }}"
+        password: "{{ service_account_password }}"
+        validate_certs: false
+        force_basic_auth: true
+        method: POST
+        body_format: json
+        body: "{{ item | to_json }}"
+        status_code: 200
+      register: claim_created
+      loop: "{{ formatted_claims }}"
+      loop_control:
+        index_var: index
+        label: "{{ item.name }}"
+      when:
+        - claim_exists.results[index].status == 404
+      changed_when: claim_created.status == 200
+
+    - name: update modified claims
+      uri:
+        url: "https://{{ansible_host}}/mgmt/tm/apm/oauth/oauth-claim/~Common~{{item.name}}"
+        user: "{{ service_account_user }}"
+        password: "{{ service_account_password }}"
+        validate_certs: false
+        force_basic_auth: true
+        method: PATCH
+        body_format: json
+        body: "{{ item | to_json }}"
+        status_code: 200
+      register: claim_modified
+      loop: "{{ formatted_claims }}"
+      loop_control:
+        index_var: index
+        label: "{{ item.name }}"
+      when:
+        - claim_exists.results[index].status == 200 # todo: add diff results
+      changed_when: claim_modified.status == 200

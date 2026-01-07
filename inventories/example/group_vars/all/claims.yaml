@@ -1,0 +1,18 @@
+---
+claims:
+  - name: employeeNumber # BIG-IP object name and token claim name; must be unique
+    claimType: string
+    claimValue: "%{session.custom.original_client_id}"
+    claimDescription: Optional Description
+
+  - name: customClaim
+    claimType: string
+    claimValue: "%{session.custom.customValue}"
+
+  - name: scp
+    claimType: string
+    claimValue: "%{session.custom.scp}"
+
+  - name: cid
+    claimType: string
+    claimValue: "%{session.custom.original_client_id}"
